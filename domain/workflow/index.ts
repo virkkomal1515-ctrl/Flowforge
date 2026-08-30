@@ -8,7 +8,6 @@ export type {
 } from "./types";
 export { fromPersistence, toPersistence } from "./transforms";
 export { addEdge, addNode, createDefaultNode, deleteNodes, moveNode, updateNodeConfig } from "./operations";
-export { nodeConfigSchemas, validateNodeConfigInput } from "./forms";
 export {
   isNodeConfigForType, validateEdge, validateEdges, validateForPublish,
   validateNode, validateWorkflow,
