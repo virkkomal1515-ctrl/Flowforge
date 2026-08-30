@@ -13,8 +13,8 @@ describe("workflow canvas adapter", () => {
     expect(toDomainEdge({ id: "new-edge", source: "condition", target: "end", sourceHandle: "false", targetHandle: "default" })).toEqual({ id: "new-edge", sourceNodeId: "condition", sourcePort: "false", targetNodeId: "end", targetPort: "default" });
   });
 
-  it("rejects unsupported handles at the adapter boundary", () => {
-    expect(toDomainEdge({ id: "bad", source: "action", target: "end", sourceHandle: "true", targetHandle: "default" })).toBeNull();
+  it("rejects malformed handles at the adapter boundary", () => {
+    expect(toDomainEdge({ id: "bad", source: "action", target: "end", sourceHandle: "unknown", targetHandle: "default" })).toBeNull();
     expect(toDomainEdge({ id: "bad-target", source: "action", target: "end", sourceHandle: "default", targetHandle: "output" })).toBeNull();
   });
 });
@@ -30,6 +30,9 @@ describe("canvas domain operations", () => {
   it("accepts valid connections and rejects invalid domain connections", () => {
     const valid = addEdge(sampleWorkflow, { id: "new", sourceNodeId: "action", sourcePort: "default", targetNodeId: "end", targetPort: "default" });
     expect(valid?.edges.some((edge) => edge.id === "new")).toBe(true);
+    const invalidPort = toDomainEdge({ id: "bad-port", source: "action", target: "end", sourceHandle: "true", targetHandle: "default" });
+    expect(invalidPort).not.toBeNull();
+    expect(addEdge(sampleWorkflow, invalidPort!)).toBeNull();
     const invalid = addEdge(sampleWorkflow, { id: "bad", sourceNodeId: "end", sourcePort: "default", targetNodeId: "action", targetPort: "default" });
     expect(invalid).toBeNull();
   });
