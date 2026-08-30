@@ -1,5 +1,28 @@
-import type { Position, Workflow, WorkflowEdge } from "./types";
+import type { NodeType, Position, Workflow, WorkflowEdge, WorkflowNode } from "./types";
 import { validateEdge } from "./validation";
+
+export function createDefaultNode(type: NodeType, id: string, position: Position): WorkflowNode {
+  const base = { id, position: { ...position } };
+
+  switch (type) {
+    case "trigger":
+      return { ...base, type, config: { triggerName: "Manual start", triggerType: "manual" } };
+    case "action":
+      return { ...base, type, config: { actionName: "New action", operation: "assign" } };
+    case "condition":
+      return { ...base, type, config: { field: "status", operator: "equals", comparisonValue: "ready" } };
+    case "notification":
+      return { ...base, type, config: { recipient: "recipient@example.com", message: "Workflow notification" } };
+    case "end":
+      return { ...base, type, config: { completionLabel: "Complete" } };
+  }
+}
+
+export function addNode(workflow: Workflow, type: NodeType, id: string, position: Position): Workflow | null {
+  if (workflow.nodes.some((node) => node.id === id)) return null;
+  if (type === "trigger" && workflow.nodes.some((node) => node.type === "trigger")) return null;
+  return { ...workflow, nodes: [...workflow.nodes, createDefaultNode(type, id, position)] };
+}
 
 export function moveNode(workflow: Workflow, nodeId: string, position: Position): Workflow {
   return { ...workflow, nodes: workflow.nodes.map((node) => node.id === nodeId ? { ...node, position: { ...position } } : node) };
