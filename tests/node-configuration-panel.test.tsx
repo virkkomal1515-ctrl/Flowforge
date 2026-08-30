@@ -1,23 +1,15 @@
-import { describe, expect, it } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 import { createDefaultNode, type WorkflowNode } from "../domain";
+import { NodeConfigurationPanel } from "../components/workflow/node-configuration-panel";
 
-const nodes: WorkflowNode[] = [
-  createDefaultNode("trigger", "trigger", { x: 0, y: 0 }),
-  createDefaultNode("action", "action", { x: 0, y: 0 }),
-  createDefaultNode("condition", "condition", { x: 0, y: 0 }),
-  createDefaultNode("notification", "notification", { x: 0, y: 0 }),
-  createDefaultNode("end", "end", { x: 0, y: 0 }),
-];
+const node = (type: WorkflowNode["type"]): WorkflowNode => createDefaultNode(type, type, { x: 10, y: 20 });
 
-describe("node configuration panel contract", () => {
-  it("supports empty selection", () => expect(undefined).toBeUndefined());
-  it("has configuration data for each of the five node forms", () => expect(nodes.map((node) => node.type)).toEqual(["trigger", "action", "condition", "notification", "end"]));
-  it("preserves Cancel semantics as committed configuration", () => {
-    const node = nodes[1]; const original = { ...node.config }; const draft = { ...original, actionName: "Draft only" };
-    expect(original.actionName).not.toBe(draft.actionName);
-    expect(node.config.actionName).toBe("New action");
-  });
-  it("keeps rejected domain updates separate from committed state", () => {
-    const node = nodes[1]; expect(node.config).toEqual({ actionName: "New action", operation: "assign" });
-  });
+describe("NodeConfigurationPanel", () => {
+  it("renders empty selection", () => { render(<NodeConfigurationPanel node={undefined} onApply={() => true} />); expect(screen.getByText("Nothing selected")).toBeInTheDocument(); });
+  it.each(["trigger", "action", "condition", "notification", "end"] as const)("renders the %s form", (type) => { render(<NodeConfigurationPanel node={node(type)} onApply={() => true} />); expect(screen.getByText(type, { exact: true })).toBeInTheDocument(); expect(screen.getByRole("button", { name: "Apply changes" })).toBeInTheDocument(); });
+  it("shows validation errors", async () => { const onApply = vi.fn(() => true); render(<NodeConfigurationPanel node={node("action")} onApply={onApply} />); fireEvent.change(screen.getByLabelText("Action name"), { target: { value: "" } }); fireEvent.click(screen.getByRole("button", { name: "Apply changes" })); expect(await screen.findByText("Action name is required.")).toBeInTheDocument(); expect(onApply).not.toHaveBeenCalled(); });
+  it("successfully applies configuration", () => { const onApply = vi.fn(() => true); render(<NodeConfigurationPanel node={node("action")} onApply={onApply} />); fireEvent.change(screen.getByLabelText("Action name"), { target: { value: "Route request" } }); fireEvent.click(screen.getByRole("button", { name: "Apply changes" })); expect(onApply).toHaveBeenCalledWith("action", expect.objectContaining({ actionName: "Route request" })); expect(screen.getByLabelText("Action name")).toHaveValue("Route request"); });
+  it("cancels draft edits", () => { render(<NodeConfigurationPanel node={node("action")} onApply={() => true} />); const input = screen.getByLabelText("Action name"); fireEvent.change(input, { target: { value: "Draft only" } }); fireEvent.click(screen.getByRole("button", { name: "Cancel" })); expect(input).toHaveValue("New action"); });
+  it("does not reset after a rejected domain update", () => { const onApply = vi.fn(() => false); render(<NodeConfigurationPanel node={node("action")} onApply={onApply} />); const input = screen.getByLabelText("Action name"); fireEvent.change(input, { target: { value: "Rejected update" } }); fireEvent.click(screen.getByRole("button", { name: "Apply changes" })); expect(onApply).toHaveBeenCalled(); expect(input).toHaveValue("Rejected update"); });
 });
