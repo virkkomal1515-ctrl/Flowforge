@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import type { Workflow } from "@/domain";
-import { addEdge, addNode, deleteNodes, moveNode } from "@/domain";
-import { toDomainEdge, toReactFlow } from "@/lib/workflow/react-flow-adapter";
-import { sampleWorkflow } from "@/lib/workflow/sample-workflow";
+import type { Workflow } from "../domain";
+import { addEdge, addNode, deleteNodes, moveNode } from "../domain";
+import { toDomainEdge, toReactFlow } from "../lib/workflow/react-flow-adapter";
+import { sampleWorkflow } from "../lib/workflow/sample-workflow";
 
 describe("workflow canvas adapter", () => {
   it("maps all five domain node types to React Flow nodes and edges back to ports", () => {
