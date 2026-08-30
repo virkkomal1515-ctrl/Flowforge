@@ -1,5 +1,5 @@
-import type { NodeType, Position, Workflow, WorkflowEdge, WorkflowNode } from "./types";
-import { validateEdge } from "./validation";
+import type { NodeConfig, NodeType, Position, Workflow, WorkflowEdge, WorkflowNode } from "./types";
+import { validateEdge, validateNode, isNodeConfigForType } from "./validation";
 
 export function createDefaultNode(type: NodeType, id: string, position: Position): WorkflowNode {
   const base = { id, position: { ...position } };
@@ -26,6 +26,14 @@ export function addNode(workflow: Workflow, type: NodeType, id: string, position
 
 export function moveNode(workflow: Workflow, nodeId: string, position: Position): Workflow {
   return { ...workflow, nodes: workflow.nodes.map((node) => node.id === nodeId ? { ...node, position: { ...position } } : node) };
+}
+
+export function updateNodeConfig(workflow: Workflow, nodeId: string, config: NodeConfig): Workflow | null {
+  const node = workflow.nodes.find((candidate) => candidate.id === nodeId);
+  if (!node || !isNodeConfigForType(node.type, config)) return null;
+  const updatedNode = { ...node, config } as WorkflowNode;
+  if (validateNode(updatedNode).some((issue) => issue.severity === "error")) return null;
+  return { ...workflow, nodes: workflow.nodes.map((candidate) => candidate.id === nodeId ? updatedNode : candidate) };
 }
 
 export function deleteNodes(workflow: Workflow, nodeIds: readonly string[]): Workflow {
