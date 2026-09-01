@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import React, { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import type { NodeConfig, WorkflowNode } from "@/domain";
 import { isNodeConfigForType } from "@/domain/workflow/validation";
