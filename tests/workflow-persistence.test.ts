@@ -18,6 +18,20 @@ describe("workflow persistence transforms", () => {
     expect(fromPersistence(persisted)).toEqual(sampleWorkflow);
   });
 
+  it("accepts valid ISO UTC timestamps", () => {
+    expect(() => fromPersistence(persisted)).not.toThrow();
+  });
+
+  it("rejects malformed timestamps", () => {
+    expect(() => fromPersistence({ ...persisted, created_at: "not-a-timestamp" })).toThrow();
+    expect(() => fromPersistence({ ...persisted, updated_at: "2026-02-30T00:00:00.000Z" })).toThrow();
+    expect(() => fromPersistence({ ...persisted, published_at: "2026-08-30" })).toThrow();
+  });
+
+  it("accepts a null published timestamp", () => {
+    expect(fromPersistence({ ...persisted, published_at: null })).toEqual(sampleWorkflow);
+  });
+
   it("rejects malformed persisted data", () => {
     expect(() => fromPersistence({ ...persisted, graph: { ...persisted.graph, nodes: "invalid" } })).toThrow();
   });
