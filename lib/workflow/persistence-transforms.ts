@@ -28,10 +28,20 @@ const nodeSchema = z.discriminatedUnion("type", [
   z.object({ id: z.string().min(1), type: z.literal("end"), position: positionSchema, config: endConfigSchema }),
 ]);
 const edgeSchema = z.object({ id: z.string().min(1), sourceNodeId: z.string().min(1), sourcePort: z.enum(["default", "true", "false"]), targetNodeId: z.string().min(1), targetPort: z.literal("default") }).strict();
+
+const isoUtcTimestampSchema = z.string().refine((value) => {
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(\.\d+)?Z$/.exec(value);
+  if (!match) return false;
+  const timestamp = Date.parse(value);
+  if (!Number.isFinite(timestamp)) return false;
+  const normalized = new Date(timestamp).toISOString();
+  return normalized.slice(0, 19) === value.slice(0, 19);
+}, { message: "Invalid ISO UTC timestamp" });
+
 const persistedWorkflowSchema = z.object({
   id: z.string().min(1), name: z.string(), description: z.string(), status: z.enum(["draft", "published"]), revision: z.number().int().nonnegative(),
   graph: z.object({ nodes: z.array(nodeSchema), edges: z.array(edgeSchema) }).strict(),
-  created_at: z.string().datetime(), updated_at: z.string().datetime(), published_at: z.string().datetime().nullable(),
+  created_at: isoUtcTimestampSchema, updated_at: isoUtcTimestampSchema, published_at: isoUtcTimestampSchema.nullable(),
 }).strict();
 
 export function toPersistence(workflow: Workflow): PersistedWorkflowDto {
