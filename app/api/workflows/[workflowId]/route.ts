@@ -7,9 +7,8 @@ interface RouteContext { params: Promise<{ workflowId: string }> }
 
 export async function GET(_: Request, { params }: RouteContext) {
   const { workflowId } = await params;
-  try {
-    return NextResponse.json(await workflowRepository.get(workflowId));
-  } catch (error) {
+  try { return NextResponse.json(await workflowRepository.get(workflowId)); }
+  catch (error) {
     if (error instanceof WorkflowNotFoundError) return NextResponse.json({ error: { code: "NOT_FOUND", message: error.message } }, { status: 404 });
     return NextResponse.json({ error: { code: "PERSISTENCE_ERROR", message: "Unable to load workflow." } }, { status: 500 });
   }
@@ -19,9 +18,7 @@ export async function PATCH(request: Request, { params }: RouteContext) {
   const { workflowId } = await params;
   try {
     const body = await request.json() as { workflow?: unknown; expectedRevision?: unknown };
-    if (typeof body.expectedRevision !== "number" || !Number.isInteger(body.expectedRevision) || body.expectedRevision < 0) {
-      return NextResponse.json({ error: { code: "INVALID_REVISION", message: "A non-negative integer expectedRevision is required." } }, { status: 400 });
-    }
+    if (typeof body.expectedRevision !== "number" || !Number.isInteger(body.expectedRevision) || body.expectedRevision < 0) return NextResponse.json({ error: { code: "INVALID_REVISION", message: "A non-negative integer expectedRevision is required." } }, { status: 400 });
     const workflow = fromPersistence(body.workflow);
     if (workflow.id !== workflowId) return NextResponse.json({ error: { code: "WORKFLOW_ID_MISMATCH", message: "Workflow id does not match the route." } }, { status: 400 });
     return NextResponse.json(await workflowRepository.update(workflow, body.expectedRevision));
@@ -31,4 +28,10 @@ export async function PATCH(request: Request, { params }: RouteContext) {
     if (error instanceof SyntaxError) return NextResponse.json({ error: { code: "INVALID_JSON", message: "Request body is invalid JSON." } }, { status: 400 });
     return NextResponse.json({ error: { code: "PERSISTENCE_ERROR", message: "Unable to save workflow." } }, { status: 500 });
   }
+}
+
+export async function DELETE(_: Request, { params }: RouteContext) {
+  const { workflowId } = await params;
+  try { await workflowRepository.delete(workflowId); return new NextResponse(null, { status: 204 }); }
+  catch { return NextResponse.json({ error: { code: "PERSISTENCE_ERROR", message: "Unable to delete workflow." } }, { status: 500 }); }
 }
