@@ -6,7 +6,12 @@ import type { CanvasNode, CanvasNodeData } from "@/lib/workflow/react-flow-adapt
 
 const tone: Record<CanvasNodeData["nodeType"], string> = { trigger: "border-emerald-300 bg-emerald-50", action: "border-blue-300 bg-blue-50", condition: "border-amber-300 bg-amber-50", notification: "border-violet-300 bg-violet-50", end: "border-slate-300 bg-slate-100" };
 const labels: Record<CanvasNodeData["nodeType"], string> = { trigger: "Workflow trigger", action: "Workflow action", condition: "Workflow condition", notification: "Workflow notification", end: "Workflow end" };
-function Frame({ node, children }: { node: CanvasNode; children: React.ReactNode }) { return <div role="group" aria-label={labels[node.data.nodeType]} className={`relative min-h-24 w-52 rounded-xl border-2 px-4 py-3 shadow-sm ${tone[node.data.nodeType]}`}>{children}</div>; }
+function Frame({ node, children }: { node: CanvasNode; children: React.ReactNode }) {
+  return <div role="group" aria-label={labels[node.data.nodeType]} aria-invalid={node.data.hasValidationError || undefined} className={`relative min-h-24 w-52 rounded-xl border-2 px-4 py-3 shadow-sm ${tone[node.data.nodeType]} ${node.data.hasValidationError ? "border-red-600 bg-red-50 ring-2 ring-red-200" : ""}`}>
+    {node.data.hasValidationError ? <span aria-label="Validation error" className="absolute -right-2 -top-2 rounded-full bg-red-600 px-2 py-1 text-[10px] font-bold text-white">Error</span> : null}
+    {children}
+  </div>;
+}
 function Header({ node }: { node: CanvasNode }) { return <><p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">{node.data.title}</p><p className="mt-1 text-sm font-semibold text-slate-900">{node.data.summary}</p></>; }
 export function TriggerNode({ data }: NodeProps<CanvasNode>) { return <Frame node={{ data } as CanvasNode}><Header node={{ data } as CanvasNode} /><Handle type="source" position={FlowPosition.Right} id="default" aria-label="Trigger output" /></Frame>; }
 export function ActionNode({ data }: NodeProps<CanvasNode>) { return <Frame node={{ data } as CanvasNode}><Handle type="target" position={FlowPosition.Left} id="default" aria-label="Action input" /><Header node={{ data } as CanvasNode} /><Handle type="source" position={FlowPosition.Right} id="default" aria-label="Action output" /></Frame>; }
