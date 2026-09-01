@@ -10,9 +10,9 @@ export default async function WorkflowPage({ params }: { params: Promise<{ workf
         <div>
           <p className="text-sm font-medium text-slate-500">Workflow editor</p>
           <h1 className="mt-1 text-3xl font-semibold tracking-tight">Workflow {workflowId}</h1>
-          <p className="mt-2 max-w-2xl text-sm text-slate-600">Build a workflow visually. Canvas edits are local demo state until persistence is introduced in a later milestone.</p>
+          <p className="mt-2 max-w-2xl text-sm text-slate-600">Build and configure a workflow. Saved workflow data is loaded through the persistence API and rendered through the existing React Flow adapter.</p>
         </div>
-        <WorkflowCanvas />
+        <WorkflowCanvas workflowId={workflowId} />
       </section>
     </AppShell>
   );
