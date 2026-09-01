@@ -1,0 +1,56 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { sampleWorkflow } from "@/lib/workflow/sample-workflow";
+import { WorkflowNotFoundError, WorkflowRevisionConflictError, workflowRepository } from "@/features/workflow-persistence/repository";
+import type { PersistedWorkflowDto } from "@/lib/workflow/persistence-transforms";
+
+const requestMock = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/supabase/server", () => ({ supabaseRequest: requestMock }));
+
+const persisted = {
+  id: sampleWorkflow.id,
+  name: sampleWorkflow.name,
+  description: sampleWorkflow.description,
+  status: sampleWorkflow.status,
+  revision: sampleWorkflow.version,
+  graph: { nodes: sampleWorkflow.nodes, edges: sampleWorkflow.edges },
+  created_at: sampleWorkflow.createdAt,
+  updated_at: sampleWorkflow.updatedAt,
+  published_at: sampleWorkflow.publishedAt ?? null,
+} satisfies PersistedWorkflowDto;
+
+beforeEach(() => requestMock.mockReset());
+
+describe("workflow repository", () => {
+  it("creates a workflow", async () => {
+    requestMock.mockResolvedValue({ data: [persisted], error: null });
+    await expect(workflowRepository.create(sampleWorkflow)).resolves.toEqual(sampleWorkflow);
+    expect(requestMock).toHaveBeenCalledWith("workflows", expect.objectContaining({ method: "POST" }));
+  });
+
+  it("loads a workflow", async () => {
+    requestMock.mockResolvedValue({ data: [persisted], error: null });
+    await expect(workflowRepository.get(sampleWorkflow.id)).resolves.toEqual(sampleWorkflow);
+  });
+
+  it("reports workflow not found", async () => {
+    requestMock.mockResolvedValue({ data: [], error: null });
+    await expect(workflowRepository.get("missing")).rejects.toBeInstanceOf(WorkflowNotFoundError);
+  });
+
+  it("updates only the expected revision", async () => {
+    const updated = { ...persisted, revision: persisted.revision + 1 };
+    requestMock.mockResolvedValue({ data: [updated], error: null });
+    await expect(workflowRepository.update(sampleWorkflow, persisted.revision)).resolves.toEqual({ ...sampleWorkflow, version: persisted.revision + 1 });
+    expect(requestMock).toHaveBeenCalledWith(expect.stringContaining(`revision=eq.${persisted.revision}`), expect.objectContaining({ method: "PATCH" }));
+  });
+
+  it("detects a revision conflict", async () => {
+    requestMock.mockResolvedValue({ data: [], error: null });
+    await expect(workflowRepository.update(sampleWorkflow, persisted.revision)).rejects.toBeInstanceOf(WorkflowRevisionConflictError);
+  });
+
+  it("surfaces storage failures", async () => {
+    requestMock.mockResolvedValue({ data: null, error: "database unavailable" });
+    await expect(workflowRepository.create(sampleWorkflow)).rejects.toThrow(/persistence failed/i);
+  });
+});
