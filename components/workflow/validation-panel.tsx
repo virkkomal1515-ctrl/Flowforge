@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import type { ValidationIssue, ValidationResult } from "@/domain";
 
 type ValidationPanelProps = {
