@@ -7,7 +7,7 @@ export type {
   WorkflowNode, WorkflowStatus,
 } from "./types";
 export { fromPersistence, toPersistence } from "./transforms";
-export { addEdge, addNode, createDefaultNode, deleteNodes, moveNode } from "./operations";
+export { addEdge, addNode, createDefaultNode, deleteNodes, moveNode, updateNodeConfig } from "./operations";
 export {
   isNodeConfigForType, validateEdge, validateEdges, validateForPublish,
   validateNode, validateWorkflow,
