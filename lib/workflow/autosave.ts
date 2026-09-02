@@ -47,13 +47,17 @@ export class AutosaveController {
     try {
       const saved = await this.options.save(request.workflow, this.serverRevision);
       if (this.disposed) return;
-      this.serverRevision = saved.version;
+      const isLatest = this.options.getLatestRevision() === request.localRevision;
       this.inFlight.delete(request.localRevision);
       this.retryCounts.delete(request.localRevision);
-      const isLatest = this.options.getLatestRevision() === request.localRevision;
-      this.options.onSaved?.(request, saved, isLatest);
+      if (!isLatest) {
+        if (this.pending) void this.flush();
+        return;
+      }
+      this.serverRevision = saved.version;
+      this.options.onSaved?.(request, saved, true);
       if (this.pending) void this.flush();
-      else if (isLatest) this.options.onStatusChange?.("saved");
+      else this.options.onStatusChange?.("saved");
     } catch (error) {
       if (this.disposed) return;
       const isLatest = this.options.getLatestRevision() === request.localRevision;
