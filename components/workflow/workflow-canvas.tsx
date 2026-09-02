@@ -94,7 +94,7 @@ function CanvasEditor({ initialWorkflow, persisted }: { initialWorkflow: Workflo
   useEffect(() => { const onKeyDown = (event: KeyboardEvent) => { const modifier = event.metaKey || event.ctrlKey; if (!modifier || event.altKey) return; if (event.key.toLowerCase() === "z" && !event.shiftKey) { event.preventDefault(); undo(); } else if (event.key.toLowerCase() === "y" || (event.key.toLowerCase() === "z" && event.shiftKey)) { event.preventDefault(); redo(); } }; window.addEventListener("keydown", onKeyDown); return () => window.removeEventListener("keydown", onKeyDown); }, [redo, undo]);
 
   const validation = useMemo(() => validateWorkflow(workflow), [workflow]);
-  const publishAllowed = useMemo(() => canPublish(workflow), [workflow]);
+  const publishAllowed = canPublish(workflow);
   const { nodes, edges } = useMemo(() => toReactFlow(workflow, validation.issues), [workflow, validation.issues]);
   const selectedNode = workflow.nodes.find((node) => node.id === selectedNodeId);
 
