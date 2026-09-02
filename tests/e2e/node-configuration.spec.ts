@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
 test("open workflow, select node, edit configuration, and apply", async ({ page }) => {
   await page.goto("/workflows/demo");
