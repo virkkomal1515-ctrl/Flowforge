@@ -41,9 +41,9 @@ describe("autosave controller", () => {
     controller.dispose();
   });
 
-  it("ignores stale success when a newer revision exists", async () => {
-    const deferred: Array<{ resolve: (value: Workflow) => void }> = [];
-    const save = vi.fn(() => new Promise<Workflow>((resolve) => deferred.push({ resolve })));
+  it("ignores an older response that completes after a newer save", async () => {
+    const deferred: Array<{ resolve: (value: Workflow) => void; reject: (error: Error) => void }> = [];
+    const save = vi.fn(() => new Promise<Workflow>((resolve, reject) => deferred.push({ resolve, reject })));
     let latestRevision = 1;
     const statuses: string[] = [];
     const saved: number[] = [];
@@ -52,10 +52,12 @@ describe("autosave controller", () => {
     await vi.advanceTimersByTimeAsync(1);
     latestRevision = 2;
     controller.schedule({ workflow: workflow("B"), localRevision: 2 });
-    deferred[0].resolve(workflow("A"));
     await vi.advanceTimersByTimeAsync(1);
-    expect(saved).toEqual([]);
+    expect(save).toHaveBeenCalledTimes(2);
     deferred[1].resolve(workflow("B"));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(saved).toEqual([2]);
+    deferred[0].resolve(workflow("A"));
     await vi.advanceTimersByTimeAsync(0);
     expect(saved).toEqual([2]);
     expect(statuses.at(-1)).toBe("saved");
@@ -72,8 +74,9 @@ describe("autosave controller", () => {
     await vi.advanceTimersByTimeAsync(1);
     latestRevision = 2;
     controller.schedule({ workflow: workflow("B"), localRevision: 2 });
-    deferred[0].reject(new Error("stale failure"));
     await vi.advanceTimersByTimeAsync(1);
+    deferred[0].reject(new Error("stale failure"));
+    await vi.advanceTimersByTimeAsync(0);
     expect(statuses).not.toContain("save-failed");
     deferred[1].resolve(workflow("B"));
     await vi.advanceTimersByTimeAsync(0);
