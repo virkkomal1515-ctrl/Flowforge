@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { ZodError } from "zod";
-import { fromPersistence, validateForPublish } from "@/domain";
+import { validateForPublish } from "@/domain";
 import { workflowRepository, WorkflowNotFoundError, WorkflowRevisionConflictError } from "@/features/workflow-persistence/repository";
+import { fromPersistence } from "@/lib/workflow/persistence-transforms";
 
 interface RouteContext { params: Promise<{ workflowId: string }> }
 
