@@ -25,7 +25,7 @@ describe("deterministic workflow execution", () => {
     expect(result.status).toBe("failed");
     expect(result.failure).toEqual({ nodeId: "notification", message: "Simulated failure for notification node." });
     expect(result.nodeResults.find((node) => node.nodeId === "notification")?.status).toBe("failed");
-    expect(result.nodeResults.find((node) => node.nodeId === "end")?.status).toBe("pending");
+    expect(result.nodeResults.find((node) => node.nodeId === "end")?.status).toBe("skipped");
   });
 
   it("rejects draft or invalid workflows before traversal", () => {
