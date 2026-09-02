@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { sampleWorkflow } from "@/lib/workflow/sample-workflow";
 import { toReactFlow } from "@/lib/workflow/react-flow-adapter";
 import { validateWorkflow } from "@/domain";
-import type { Workflow } from "@/domain";
+import type { ActionOperation, Workflow } from "@/domain";
 
 const SIZES = [25, 50, 100, 250] as const;
 const ITERATIONS = 10;
@@ -13,7 +13,7 @@ function workflowWithNodeCount(count: number): Workflow {
     id: `action-${index}`,
     type: "action" as const,
     position: { x: (index % 10) * 240, y: Math.floor(index / 10) * 140 },
-    config: { actionName: `Action ${index}`, operation: "assign" },
+    config: { actionName: `Action ${index}`, operation: "assign" as ActionOperation },
   }));
   return { ...workflow, id: `perf-${count}`, nodes: [...workflow.nodes, ...nodes], edges: workflow.edges };
 }
