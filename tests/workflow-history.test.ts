@@ -28,7 +28,10 @@ describe("workflow history", () => {
     let history = createWorkflowHistory(sampleWorkflow);
     for (let i = 0; i < 4; i += 1) history = commitWorkflowHistory(history, addNode(history.present, "action", `a-${i}`, { x: i, y: i })!, 2);
     expect(history.past).toHaveLength(2);
-    expect(history.past[0].nodes.some((node) => node.id === "a-0")).toBe(false);
+    expect(history.past[0].nodes.some((node) => node.id === "a-0")).toBe(true);
+    expect(history.past[0].nodes.some((node) => node.id === "a-1")).toBe(true);
+    expect(history.past[0].nodes.some((node) => node.id === "a-2")).toBe(false);
     expect(history.past[1].nodes.some((node) => node.id === "a-2")).toBe(true);
+    expect(history.past[1].nodes.some((node) => node.id === "a-3")).toBe(false);
   });
 });
