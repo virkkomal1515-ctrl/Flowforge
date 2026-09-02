@@ -1,16 +1,19 @@
 import type { Workflow } from "@/domain";
-import { fromPersistence, toPersistence, type PersistedWorkflowDto } from "@/lib/workflow/persistence-transforms";
+import { fromPersistence, publishedFromPersistence, toPersistence, type PersistedWorkflowDto } from "@/lib/workflow/persistence-transforms";
 import { supabaseRequest } from "@/lib/supabase/server";
 
 export class WorkflowNotFoundError extends Error { constructor(id: string) { super(`Workflow ${id} was not found.`); this.name = "WorkflowNotFoundError"; } }
 export class WorkflowRevisionConflictError extends Error { constructor() { super("Workflow has changed since it was loaded."); this.name = "WorkflowRevisionConflictError"; } }
 export class WorkflowPersistenceError extends Error { constructor(message: string) { super(message); this.name = "WorkflowPersistenceError"; } }
+export class WorkflowNotPublishedError extends Error { constructor() { super("Workflow has no published version."); this.name = "WorkflowNotPublishedError"; } }
 
 export interface WorkflowRepository {
   list(): Promise<Workflow[]>;
   create(workflow: Workflow): Promise<Workflow>;
   get(id: string): Promise<Workflow>;
   update(workflow: Workflow, expectedRevision: number): Promise<Workflow>;
+  publish(workflow: Workflow, expectedRevision: number): Promise<Workflow>;
+  getPublished(id: string): Promise<Workflow>;
   delete(id: string): Promise<void>;
 }
 
@@ -37,10 +40,27 @@ export const workflowRepository: WorkflowRepository = {
     try { return fromPersistence(persisted); } catch (error) { throw toError(error instanceof Error ? error.message : "Invalid persisted workflow."); }
   },
   async update(workflow, expectedRevision) {
-    const result = await supabaseRequest<PersistedWorkflowDto[]>(`workflows?id=eq.${encodeURIComponent(workflow.id)}&revision=eq.${expectedRevision}`, { method: "PATCH", body: JSON.stringify({ ...toPersistence(workflow), revision: expectedRevision + 1 }) });
+    const draft = { ...workflow, status: "draft" as const };
+    const result = await supabaseRequest<PersistedWorkflowDto[]>(`workflows?id=eq.${encodeURIComponent(workflow.id)}&revision=eq.${expectedRevision}`, { method: "PATCH", body: JSON.stringify({ ...toPersistence(draft), revision: expectedRevision + 1, status: "draft" }) });
     if (result.error) throw toError(result.error);
     if (!result.data?.[0]) throw new WorkflowRevisionConflictError();
     try { return fromPersistence(result.data[0]); } catch (error) { throw toError(error instanceof Error ? error.message : "Invalid persisted workflow."); }
+  },
+  async publish(workflow, expectedRevision) {
+    const publishedAt = workflow.publishedAt ?? new Date().toISOString();
+    const result = await supabaseRequest<PersistedWorkflowDto[]>(`workflows?id=eq.${encodeURIComponent(workflow.id)}&revision=eq.${expectedRevision}`, {
+      method: "PATCH",
+      body: JSON.stringify({ ...toPersistence(workflow), status: "published", published_at: publishedAt, published_revision: expectedRevision, published_graph: structuredClone({ nodes: workflow.nodes, edges: workflow.edges }) }),
+    });
+    if (result.error) throw toError(result.error);
+    if (!result.data?.[0]) throw new WorkflowRevisionConflictError();
+    try { return fromPersistence(result.data[0]); } catch (error) { throw toError(error instanceof Error ? error.message : "Invalid persisted workflow."); }
+  },
+  async getPublished(id) {
+    const result = await supabaseRequest<PersistedWorkflowDto[]>(`workflows?id=eq.${encodeURIComponent(id)}&select=*`);
+    if (result.error) throw toError(result.error);
+    if (!result.data?.[0]) throw new WorkflowNotFoundError(id);
+    try { return publishedFromPersistence(result.data[0]); } catch { throw new WorkflowNotPublishedError(); }
   },
   async delete(id) {
     const result = await supabaseRequest<unknown[]>(`workflows?id=eq.${encodeURIComponent(id)}`, { method: "DELETE" });
