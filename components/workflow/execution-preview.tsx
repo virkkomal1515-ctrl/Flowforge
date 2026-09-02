@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import type { ExecutionResult, Workflow } from "@/domain";
 import { executeWorkflow } from "@/lib/workflow/api";
 
