@@ -6,6 +6,10 @@ export { expect };
 export const test = base.extend({
   page: async ({ page }, use) => {
     const workflow = structuredClone(sampleWorkflow);
+    await page.route("**/api/workflows", async (route) => {
+      if (route.request().method() !== "GET") return route.continue();
+      return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ workflows: [workflow] }) });
+    });
     await page.route("**/api/workflows/*", async (route) => {
       if (route.request().method() !== "GET") return route.continue();
       const path = new URL(route.request().url()).pathname;
