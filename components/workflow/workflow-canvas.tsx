@@ -6,7 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { addEdge, addNode, deleteNodes, moveNode, updateNodeConfig, validateWorkflow, type NodeConfig, type NodeType, type Workflow } from "@/domain";
 import { fetchWorkflow, updateWorkflow, workflowQueryKeys } from "@/lib/workflow/api";
 import { AutosaveController, type SaveStatus } from "@/lib/workflow/autosave";
-import { commitWorkflowHistory, createWorkflowHistory, redoWorkflowHistory, undoWorkflowHistory, type WorkflowHistory, DEFAULT_HISTORY_LIMIT } from "@/lib/workflow/history";
+import { commitWorkflowHistory, createWorkflowHistory, redoWorkflowHistory, undoWorkflowHistory, DEFAULT_HISTORY_LIMIT, type WorkflowHistory } from "@/lib/workflow/history";
 import { toDomainEdge, toReactFlow, type CanvasNode } from "@/lib/workflow/react-flow-adapter";
 import { sampleWorkflow } from "@/lib/workflow/sample-workflow";
 import { canPublish } from "@/lib/workflow/publish-state";
@@ -28,25 +28,30 @@ function CanvasEditor({ initialWorkflow, persisted }: { initialWorkflow: Workflo
   const [message, setMessage] = useState("Canvas ready. Select a node or connect ports.");
   const idCounter = useRef(0);
   const localRevisionRef = useRef(0);
+  const autosaveRef = useRef<AutosaveController | null>(null);
   const serverRevisionRef = useRef(initialWorkflow.version);
   const { screenToFlowPosition, setCenter } = useReactFlow();
   const queryClient = useQueryClient();
   const workflow = history.present;
 
-  const autosave = useMemo(() => persisted ? new AutosaveController({
-    save: async ({ workflow: snapshot }) => updateWorkflow({ ...structuredClone(snapshot), version: serverRevisionRef.current }),
-    getLatestRevision: () => localRevisionRef.current,
-    onStatusChange: setSaveStatus,
-    onSaved: (request, saved, isLatest) => {
-      serverRevisionRef.current = saved.version;
-      queryClient.setQueryData(workflowQueryKeys.detail(saved.id), saved);
-      queryClient.invalidateQueries({ queryKey: workflowQueryKeys.list() });
-      setMessage(isLatest ? "Workflow saved automatically." : `Save for local revision ${request.localRevision} completed; newer changes remain local.`);
-    },
-    onFailed: (_, error) => setMessage(error instanceof Error ? error.message : "Unable to save workflow."),
-  }) : null, [persisted, queryClient]);
-
-  useEffect(() => () => autosave?.dispose(), [autosave]);
+  useEffect(() => {
+    if (!persisted) return;
+    const controller = new AutosaveController({
+      initialServerRevision: serverRevisionRef.current,
+      save: (snapshot, expectedServerRevision) => updateWorkflow({ ...structuredClone(snapshot), version: expectedServerRevision }),
+      getLatestRevision: () => localRevisionRef.current,
+      onStatusChange: setSaveStatus,
+      onSaved: (request, saved, isLatest) => {
+        serverRevisionRef.current = saved.version;
+        queryClient.setQueryData(workflowQueryKeys.detail(saved.id), saved);
+        queryClient.invalidateQueries({ queryKey: workflowQueryKeys.list() });
+        setMessage(isLatest ? "Workflow saved automatically." : `Save for local revision ${request.localRevision} completed; newer changes remain local.`);
+      },
+      onFailed: (_, error) => setMessage(error instanceof Error ? error.message : "Unable to save workflow."),
+    });
+    autosaveRef.current = controller;
+    return () => { controller.dispose(); autosaveRef.current = null; };
+  }, [persisted, queryClient]);
 
   const commitLocalWorkflow = useCallback((next: Workflow) => {
     setHistory((current) => {
@@ -54,28 +59,20 @@ function CanvasEditor({ initialWorkflow, persisted }: { initialWorkflow: Workflo
       if (nextHistory === current) return current;
       localRevisionRef.current += 1;
       setLocalRevision(localRevisionRef.current);
-      if (persisted) autosave?.schedule({ workflow: nextHistory.present, localRevision: localRevisionRef.current });
+      if (persisted) autosaveRef.current?.schedule({ workflow: nextHistory.present, localRevision: localRevisionRef.current });
       return nextHistory;
     });
-  }, [autosave, persisted]);
+  }, [persisted]);
 
-  const selectAndFocusNode = (nodeId: string) => {
-    const node = workflow.nodes.find((candidate) => candidate.id === nodeId);
-    if (!node) return;
-    setSelectedNodeId(nodeId);
-    setCenter(node.position.x + 104, node.position.y + 48, { zoom: 1.1, duration: 300 });
-    setMessage(`${node.type[0].toUpperCase()}${node.type.slice(1)} node selected from validation.`);
-  };
+  const selectAndFocusNode = (nodeId: string) => { const node = workflow.nodes.find((candidate) => candidate.id === nodeId); if (!node) return; setSelectedNodeId(nodeId); setCenter(node.position.x + 104, node.position.y + 48, { zoom: 1.1, duration: 300 }); setMessage(`${node.type[0].toUpperCase()}${node.type.slice(1)} node selected from validation.`); };
   const onNodesChange = (changes: NodeChange<CanvasNode>[]) => { let next = workflow; for (const change of changes) if (change.type === "position" && change.position) next = moveNode(next, change.id, change.position); if (next !== workflow) commitLocalWorkflow(next); };
   const onConnect = (connection: Connection) => { const domainEdge = toDomainEdge({ ...connection, id: `edge-${connection.source}-${connection.sourceHandle ?? "default"}-${connection.target}` }); if (!domainEdge) return setMessage("Connection rejected: ports do not match the workflow model."); const next = addEdge(workflow, domainEdge); if (!next) return setMessage("Connection rejected by the workflow domain rules."); commitLocalWorkflow(next); setMessage("Connection added."); };
   const onNodesDelete: OnNodesDelete = (deleted) => { const ids = deleted.map((node) => node.id); commitLocalWorkflow(deleteNodes(workflow, ids)); if (selectedNodeId && ids.includes(selectedNodeId)) setSelectedNodeId(null); setMessage(`${ids.length} node${ids.length === 1 ? "" : "s"} deleted.`); };
   const addPaletteNode = (type: NodeType) => { const id = `${type}-${++idCounter.current}`; const position = screenToFlowPosition({ x: window.innerWidth / 2, y: 280 }); const next = addNode(workflow, type, id, position); if (!next) return; commitLocalWorkflow(next); setSelectedNodeId(id); setMessage(`${type[0].toUpperCase()}${type.slice(1)} node added.`); };
   const deleteSelected = () => { if (!selectedNodeId) return; commitLocalWorkflow(deleteNodes(workflow, [selectedNodeId])); setSelectedNodeId(null); setMessage("1 node deleted."); };
   const applyConfig = (nodeId: string, config: NodeConfig): boolean => { const next = updateNodeConfig(workflow, nodeId, config); if (!next) { setMessage("Configuration rejected by the workflow domain."); return false; } commitLocalWorkflow(next); setMessage("Node configuration updated."); return true; };
-
-  const undo = useCallback(() => setHistory((current) => { if (!current.past.length) return current; const next = undoWorkflowHistory(current); localRevisionRef.current += 1; setLocalRevision(localRevisionRef.current); if (persisted) autosave?.schedule({ workflow: next.present, localRevision: localRevisionRef.current }); setMessage("Undo applied."); return next; }), [autosave, persisted]);
-  const redo = useCallback(() => setHistory((current) => { if (!current.future.length) return current; const next = redoWorkflowHistory(current, DEFAULT_HISTORY_LIMIT); localRevisionRef.current += 1; setLocalRevision(localRevisionRef.current); if (persisted) autosave?.schedule({ workflow: next.present, localRevision: localRevisionRef.current }); setMessage("Redo applied."); return next; }), [autosave, persisted]);
-
+  const undo = useCallback(() => setHistory((current) => { if (!current.past.length) return current; const next = undoWorkflowHistory(current); localRevisionRef.current += 1; setLocalRevision(localRevisionRef.current); if (persisted) autosaveRef.current?.schedule({ workflow: next.present, localRevision: localRevisionRef.current }); setMessage("Undo applied."); return next; }), [persisted]);
+  const redo = useCallback(() => setHistory((current) => { if (!current.future.length) return current; const next = redoWorkflowHistory(current, DEFAULT_HISTORY_LIMIT); localRevisionRef.current += 1; setLocalRevision(localRevisionRef.current); if (persisted) autosaveRef.current?.schedule({ workflow: next.present, localRevision: localRevisionRef.current }); setMessage("Redo applied."); return next; }), [persisted]);
   useEffect(() => { const onKeyDown = (event: KeyboardEvent) => { const modifier = event.metaKey || event.ctrlKey; if (!modifier || event.altKey) return; if (event.key.toLowerCase() === "z" && !event.shiftKey) { event.preventDefault(); undo(); } else if (event.key.toLowerCase() === "y" || (event.key.toLowerCase() === "z" && event.shiftKey)) { event.preventDefault(); redo(); } }; window.addEventListener("keydown", onKeyDown); return () => window.removeEventListener("keydown", onKeyDown); }, [redo, undo]);
 
   const validation = useMemo(() => validateWorkflow(workflow), [workflow]);
