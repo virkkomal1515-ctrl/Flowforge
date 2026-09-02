@@ -11,7 +11,11 @@ describe("autosave controller", () => {
   afterEach(() => vi.useRealTimers());
 
   it("debounces rapid edits and saves the latest scheduled revision", async () => {
-    const save = vi.fn(async (snapshot: Workflow) => saveWorkflow(snapshot));
+    const save = vi.fn(async (request: { workflow: Workflow; localRevision: number }, expectedRevision: number) => {
+      expect(request.localRevision).toBe(2);
+      expect(expectedRevision).toBe(4);
+      return saveWorkflow(request.workflow);
+    });
     let latestRevision = 0;
     const controller = new AutosaveController({ save, initialServerRevision: 4, debounceMs: 100, getLatestRevision: () => latestRevision });
     latestRevision = 1;
@@ -23,8 +27,7 @@ describe("autosave controller", () => {
     expect(save).not.toHaveBeenCalled();
     await vi.advanceTimersByTimeAsync(1);
     expect(save).toHaveBeenCalledTimes(1);
-    expect(save.mock.calls[0][0].name).toBe("B");
-    expect(save.mock.calls[0][1]).toBe(4);
+    expect(save.mock.calls[0][0].workflow.name).toBe("B");
     controller.dispose();
   });
 
@@ -45,11 +48,11 @@ describe("autosave controller", () => {
 
   it("ignores an older response that completes after a newer save", async () => {
     const deferred: Array<{ resolve: (value: Workflow) => void; reject: (error: Error) => void }> = [];
-    const save = vi.fn((_snapshot: Workflow) => new Promise<Workflow>((resolve, reject) => deferred.push({ resolve, reject })));
+    const save = vi.fn((request: { workflow: Workflow; localRevision: number }) => new Promise<Workflow>((resolve, reject) => { deferred.push({ resolve, reject }); void request; }));
     let latestRevision = 1;
     const statuses: string[] = [];
     const saved: number[] = [];
-    const controller = new AutosaveController({ save, initialServerRevision: 4, debounceMs: 1, getLatestRevision: () => latestRevision, onStatusChange: (status) => statuses.push(status), onSaved: (request, _, isLatest) => { if (isLatest) saved.push(request.localRevision); } });
+    const controller = new AutosaveController({ save, initialServerRevision: 4, debounceMs: 1, getLatestRevision: () => latestRevision, onStatusChange: (status) => statuses.push(status), onSaved: (request, _saved, isLatest) => { if (isLatest) saved.push(request.localRevision); } });
     controller.schedule({ workflow: workflow("A"), localRevision: 1 });
     await vi.advanceTimersByTimeAsync(1);
     latestRevision = 2;
@@ -68,7 +71,7 @@ describe("autosave controller", () => {
 
   it("does not surface stale failures after a newer edit", async () => {
     const deferred: Array<{ reject: (error: Error) => void; resolve: (value: Workflow) => void }> = [];
-    const save = vi.fn((_snapshot: Workflow) => new Promise<Workflow>((resolve, reject) => deferred.push({ resolve, reject })));
+    const save = vi.fn((request: { workflow: Workflow; localRevision: number }) => new Promise<Workflow>((resolve, reject) => { deferred.push({ resolve, reject }); void request; }));
     let latestRevision = 1;
     const statuses: string[] = [];
     const controller = new AutosaveController({ save, initialServerRevision: 4, debounceMs: 1, getLatestRevision: () => latestRevision, onStatusChange: (status) => statuses.push(status) });
