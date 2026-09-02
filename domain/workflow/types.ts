@@ -120,6 +120,11 @@ export interface NodeExecutionResult {
   status: NodeExecutionStatus;
 }
 
+export interface ExecutionFailure {
+  nodeId: string;
+  message: string;
+}
+
 export interface ExecutionResult {
   id: string;
   workflowId: string;
@@ -128,4 +133,13 @@ export interface ExecutionResult {
   completedAt?: string;
   nodeResults: NodeExecutionResult[];
   logs: ExecutionLog[];
+  failure?: ExecutionFailure;
+}
+
+export type ExecutionInput = Record<string, string | number | boolean | null>;
+
+export interface ExecutionSimulationOptions {
+  failNodeId?: string;
+  executionId?: string;
+  now?: string;
 }
