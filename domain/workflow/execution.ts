@@ -33,8 +33,13 @@ export function executeWorkflow(workflow: Workflow, input: ExecutionInput = {}, 
     if (current.type === "condition") {
       const selectedPort: "true" | "false" = compare(input[current.config.field], current.config.operator, current.config.comparisonValue) ? "true" : "false";
       const skippedPort: "true" | "false" = selectedPort === "true" ? "false" : "true";
-      for (const edge of outgoing(workflow.edges, current.id, skippedPort)) addResult(result.nodeResults, edge.targetNodeId, "skipped");
-      nextEdge = outgoing(workflow.edges, current.id, selectedPort)[0]; result.logs.push({ timestamp: isoStep(start, step + 1), nodeId: current.id, message: `Condition evaluated ${selectedPort}.`, level: "info" });
+      const selectedEdges = outgoing(workflow.edges, current.id, selectedPort);
+      const skippedEdges = outgoing(workflow.edges, current.id, skippedPort);
+      for (const edge of skippedEdges) {
+        const target = nodeById.get(edge.targetNodeId);
+        if (target && !workflow.edges.some((candidate) => candidate.targetNodeId === target.id && candidate.sourceNodeId !== current?.id && candidate.sourcePort === "default")) addResult(result.nodeResults, edge.targetNodeId, "skipped");
+      }
+      nextEdge = selectedEdges[0]; result.logs.push({ timestamp: isoStep(start, step + 1), nodeId: current.id, message: `Condition evaluated ${selectedPort}.`, level: "info" });
     } else nextEdge = outgoing(workflow.edges, current.id, "default")[0];
     addResult(result.nodeResults, current.id, "successful"); result.logs.push({ timestamp: isoStep(start, step + 1), nodeId: current.id, message: `${current.type} completed.`, level: "info" });
     if (current.type === "end") break;
