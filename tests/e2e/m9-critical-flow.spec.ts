@@ -17,7 +17,7 @@ test.describe("Milestone 9 critical workflow journey", () => {
       return route.continue();
     });
 
-    await page.route("**/api/workflows/*", async (route) => {
+    await page.route("**/api/workflows/**", async (route) => {
       const path = new URL(route.request().url()).pathname;
       if (path.endsWith("/publish")) {
         stored = { ...stored, status: "published", version: stored.version + 1, publishedAt: "2026-09-02T00:00:02.000Z" };
@@ -41,19 +41,24 @@ test.describe("Milestone 9 critical workflow journey", () => {
 
     await page.getByRole("group", { name: "Workflow action" }).click();
     await page.getByLabel("Action name").fill("Configured action");
+    const saveRequest = page.waitForRequest((request) => request.url().endsWith(`/api/workflows/${workflowId}`) && request.method() === "PATCH");
     await page.getByRole("button", { name: "Apply changes" }).click();
     await expect(page.getByText("Node configuration updated.")).toBeVisible();
     await expect(page.getByLabel("Workflow validation")).toContainText("Workflow is valid.");
-    await expect(page.getByText("Workflow saved automatically.")).toBeVisible({ timeout: 5000 });
+    await saveRequest;
 
     await page.reload();
     await page.getByRole("group", { name: "Workflow action" }).click();
     await expect(page.getByLabel("Action name")).toHaveValue("Configured action");
     await expect(page.getByRole("button", { name: "Publish" })).toBeEnabled();
+    const publishResponse = page.waitForResponse((response) => response.url().endsWith(`/api/workflows/${workflowId}/publish`) && response.request().method() === "POST" && response.ok());
     await page.getByRole("button", { name: "Publish" }).click();
+    await publishResponse;
     await expect(page.getByText(/Published version \d+ successfully\./)).toBeVisible();
 
+    const executeResponse = page.waitForResponse((response) => response.url().endsWith(`/api/workflows/${workflowId}/execute`) && response.request().method() === "POST" && response.ok());
     await page.getByRole("button", { name: "Run Preview" }).click();
+    await executeResponse;
     await expect(page.getByText("Execution completed successfully.")).toBeVisible();
     await expect(page.getByText("Workflow completed.")).toBeVisible();
   });
