@@ -13,7 +13,7 @@ export function AppShell({ children }: Readonly<{ children: React.ReactNode }>) 
             <Link href="/" className="rounded-lg px-3 py-2 text-slate-600 transition hover:bg-white hover:text-slate-950 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">Home</Link>
             <Link href="/dashboard" className="rounded-lg bg-white px-3 py-2 text-slate-950 shadow-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">Workflows</Link>
           </nav>
-          <Link href="/dashboard" className="hidden rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 sm:inline-flex focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">New workflow</Link>
+          <Link href="/dashboard" className="hidden rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 sm:inline-flex focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">Open workspace</Link>
         </div>
       </header>
       <main className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">{children}</main>
