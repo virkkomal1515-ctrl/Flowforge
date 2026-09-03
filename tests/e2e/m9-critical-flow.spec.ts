@@ -36,7 +36,7 @@ test.describe("Milestone 9 critical workflow journey", () => {
     });
 
     await page.goto("/dashboard");
-    await page.getByRole("button", { name: "New workflow" }).click();
+    await page.getByRole("button", { name: /New workflow/ }).click();
     await page.waitForURL(`/workflows/${workflowId}`);
 
     await page.getByRole("group", { name: "Workflow action" }).click();
@@ -53,6 +53,8 @@ test.describe("Milestone 9 critical workflow journey", () => {
     await expect(page.getByRole("button", { name: "Publish" })).toBeEnabled();
     const publishResponse = page.waitForResponse((response) => response.url().endsWith(`/api/workflows/${workflowId}/publish`) && response.request().method() === "POST" && response.ok());
     await page.getByRole("button", { name: "Publish" }).click();
+    await expect(page.getByRole("dialog")).toBeVisible();
+    await page.getByRole("dialog").getByRole("button", { name: "Publish workflow" }).click();
     await publishResponse;
     await expect(page.getByText(/Published version \d+ successfully\./)).toBeVisible();
 
