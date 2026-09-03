@@ -10,6 +10,8 @@ import { commitWorkflowHistory, createWorkflowHistory, redoWorkflowHistory, undo
 import { toDomainEdge, toReactFlow, type CanvasNode } from "@/lib/workflow/react-flow-adapter";
 import { sampleWorkflow } from "@/lib/workflow/sample-workflow";
 import { canPublish } from "@/lib/workflow/publish-state";
+import { useToast } from "@/components/ui/toast-provider";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { ActionNode, ConditionNode, EndNode, NotificationNode, TriggerNode } from "./workflow-nodes";
 import { NodeConfigurationPanel } from "./node-configuration-panel";
 import { ValidationPanel } from "./validation-panel";
@@ -28,12 +30,14 @@ function CanvasEditor({ initialWorkflow, persisted }: { initialWorkflow: Workflo
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [message, setMessage] = useState("Canvas ready. Select a node or connect ports.");
   const [publishing, setPublishing] = useState(false);
+  const [publishDialogOpen, setPublishDialogOpen] = useState(false);
   const idCounter = useRef(0);
   const localRevisionRef = useRef(0);
   const autosaveRef = useRef<AutosaveController | null>(null);
   const serverRevisionRef = useRef(initialWorkflow.version);
   const { screenToFlowPosition, setCenter } = useReactFlow();
   const queryClient = useQueryClient();
+  const { toast } = useToast();
   const workflow = history.present;
 
   useEffect(() => {
@@ -49,11 +53,15 @@ function CanvasEditor({ initialWorkflow, persisted }: { initialWorkflow: Workflo
         queryClient.invalidateQueries({ queryKey: workflowQueryKeys.list() });
         setMessage(isLatest ? "Workflow saved automatically." : `Save for local revision ${request.localRevision} completed; newer changes remain local.`);
       },
-      onFailed: (_, error) => setMessage(error instanceof Error ? error.message : "Unable to save workflow."),
+      onFailed: (_, error) => {
+        const text = error instanceof Error ? error.message : "Unable to save workflow.";
+        setMessage(text);
+        toast({ tone: "error", title: "Autosave failed", message: text });
+      },
     });
     autosaveRef.current = controller;
     return () => { controller.dispose(); autosaveRef.current = null; };
-  }, [persisted, queryClient]);
+  }, [persisted, queryClient, toast]);
 
   const commitLocalWorkflow = useCallback((next: Workflow) => {
     setHistory((current) => {
@@ -72,7 +80,12 @@ function CanvasEditor({ initialWorkflow, persisted }: { initialWorkflow: Workflo
 
   const publish = async () => {
     if (!publishAllowed || !persisted || publishing) return;
-    if (saveStatus !== "saved") { setMessage("Wait for the latest draft to finish saving before publishing."); return; }
+    if (saveStatus !== "saved") {
+      setMessage("Wait for the latest draft to finish saving before publishing.");
+      toast({ tone: "warning", title: "Draft still saving", message: "Wait until the workflow shows Saved." });
+      return;
+    }
+    setPublishDialogOpen(false);
     setPublishing(true);
     setMessage("Publishing validated workflow…");
     try {
@@ -82,19 +95,23 @@ function CanvasEditor({ initialWorkflow, persisted }: { initialWorkflow: Workflo
       queryClient.invalidateQueries({ queryKey: workflowQueryKeys.list() });
       setHistory(createWorkflowHistory(published));
       setMessage(`Published version ${published.version} successfully.`);
-    } catch (error) { setMessage(error instanceof Error ? error.message : "Unable to publish workflow."); }
-    finally { setPublishing(false); }
+      toast({ tone: "success", title: "Workflow published", message: `Version ${published.version} is ready for Execution Preview.` });
+    } catch (error) {
+      const text = error instanceof Error ? error.message : "Unable to publish workflow.";
+      setMessage(text);
+      toast({ tone: "error", title: "Publish failed", message: text });
+    } finally { setPublishing(false); }
   };
 
   const selectAndFocusNode = (nodeId: string) => { const node = workflow.nodes.find((candidate) => candidate.id === nodeId); if (!node) return; setSelectedNodeId(nodeId); setCenter(node.position.x + 104, node.position.y + 48, { zoom: 1.1, duration: 300 }); setMessage(`${node.type[0].toUpperCase()}${node.type.slice(1)} node selected from validation.`); };
   const onNodesChange = (changes: NodeChange<CanvasNode>[]) => { let next = workflow; for (const change of changes) if (change.type === "position" && change.position) next = moveNode(next, change.id, change.position); if (next !== workflow) commitLocalWorkflow(next); };
-  const onConnect = (connection: Connection) => { const domainEdge = toDomainEdge({ ...connection, id: `edge-${connection.source}-${connection.sourceHandle ?? "default"}-${connection.target}` }); if (!domainEdge) return setMessage("Connection rejected: ports do not match the workflow model."); const next = addEdge(workflow, domainEdge); if (!next) return setMessage("Connection rejected by the workflow domain rules."); commitLocalWorkflow(next); setMessage("Connection added."); };
-  const onNodesDelete: OnNodesDelete = (deleted) => { const ids = deleted.map((node) => node.id); commitLocalWorkflow(deleteNodes(workflow, ids)); if (selectedNodeId && ids.includes(selectedNodeId)) setSelectedNodeId(null); setMessage(`${ids.length} node${ids.length === 1 ? "" : "s"} deleted.`); };
-  const addPaletteNode = (type: NodeType) => { const id = `${type}-${++idCounter.current}`; const position = screenToFlowPosition({ x: window.innerWidth / 2, y: 280 }); const next = addNode(workflow, type, id, position); if (!next) return; commitLocalWorkflow(next); setSelectedNodeId(id); setMessage(`${type[0].toUpperCase()}${type.slice(1)} node added.`); };
-  const deleteSelected = () => { if (!selectedNodeId) return; commitLocalWorkflow(deleteNodes(workflow, [selectedNodeId])); setSelectedNodeId(null); setMessage("1 node deleted."); };
-  const applyConfig = (nodeId: string, config: NodeConfig): boolean => { const next = updateNodeConfig(workflow, nodeId, config); if (!next) { setMessage("Configuration rejected by the workflow domain."); return false; } commitLocalWorkflow(next); setMessage("Node configuration updated."); return true; };
-  const undo = useCallback(() => setHistory((current) => { if (!current.past.length) return current; const next = undoWorkflowHistory(current); localRevisionRef.current += 1; setLocalRevision(localRevisionRef.current); setMessage("Undo applied."); return next; }), []);
-  const redo = useCallback(() => setHistory((current) => { if (!current.future.length) return current; const next = redoWorkflowHistory(current, DEFAULT_HISTORY_LIMIT); localRevisionRef.current += 1; setLocalRevision(localRevisionRef.current); setMessage("Redo applied."); return next; }), []);
+  const onConnect = (connection: Connection) => { const domainEdge = toDomainEdge({ ...connection, id: `edge-${connection.source}-${connection.sourceHandle ?? "default"}-${connection.target}` }); if (!domainEdge) { const text = "Connection rejected: ports do not match the workflow model."; setMessage(text); toast({ tone: "warning", title: "Connection rejected", message: text }); return; } const next = addEdge(workflow, domainEdge); if (!next) { const text = "Connection rejected by the workflow domain rules."; setMessage(text); toast({ tone: "warning", title: "Connection rejected", message: text }); return; } commitLocalWorkflow(next); setMessage("Connection added."); toast({ tone: "success", title: "Connection added" }); };
+  const onNodesDelete: OnNodesDelete = (deleted) => { const ids = deleted.map((node) => node.id); commitLocalWorkflow(deleteNodes(workflow, ids)); if (selectedNodeId && ids.includes(selectedNodeId)) setSelectedNodeId(null); setMessage(`${ids.length} node${ids.length === 1 ? "" : "s"} deleted.`); toast({ tone: "success", title: `${ids.length} node${ids.length === 1 ? "" : "s"} deleted` }); };
+  const addPaletteNode = (type: NodeType) => { const id = `${type}-${++idCounter.current}`; const position = screenToFlowPosition({ x: window.innerWidth / 2, y: 280 }); const next = addNode(workflow, type, id, position); if (!next) return; commitLocalWorkflow(next); setSelectedNodeId(id); setMessage(`${type[0].toUpperCase()}${type.slice(1)} node added.`); toast({ tone: "success", title: `${type[0].toUpperCase()}${type.slice(1)} added`, message: "Connect it to the workflow graph before publishing." }); };
+  const deleteSelected = () => { if (!selectedNodeId) return; commitLocalWorkflow(deleteNodes(workflow, [selectedNodeId])); setSelectedNodeId(null); setMessage("1 node deleted."); toast({ tone: "success", title: "Node deleted" }); };
+  const applyConfig = (nodeId: string, config: NodeConfig): boolean => { const next = updateNodeConfig(workflow, nodeId, config); if (!next) { const text = "Configuration rejected by the workflow domain."; setMessage(text); toast({ tone: "error", title: "Configuration rejected", message: text }); return false; } commitLocalWorkflow(next); setMessage("Node configuration updated."); toast({ tone: "success", title: "Node updated" }); return true; };
+  const undo = useCallback(() => setHistory((current) => { if (!current.past.length) return current; const next = undoWorkflowHistory(current); localRevisionRef.current += 1; setLocalRevision(localRevisionRef.current); setMessage("Undo applied."); toast({ tone: "info", title: "Undo applied" }); return next; }), [toast]);
+  const redo = useCallback(() => setHistory((current) => { if (!current.future.length) return current; const next = redoWorkflowHistory(current, DEFAULT_HISTORY_LIMIT); localRevisionRef.current += 1; setLocalRevision(localRevisionRef.current); setMessage("Redo applied."); toast({ tone: "info", title: "Redo applied" }); return next; }), [toast]);
   useEffect(() => { const onKeyDown = (event: KeyboardEvent) => { const modifier = event.metaKey || event.ctrlKey; if (!modifier || event.altKey) return; if (event.key.toLowerCase() === "z" && !event.shiftKey) { event.preventDefault(); undo(); } else if (event.key.toLowerCase() === "y" || (event.key.toLowerCase() === "z" && event.shiftKey)) { event.preventDefault(); redo(); } }; window.addEventListener("keydown", onKeyDown); return () => window.removeEventListener("keydown", onKeyDown); }, [redo, undo]);
 
   const validation = useMemo(() => validateWorkflow(workflow), [workflow]);
@@ -105,11 +122,12 @@ function CanvasEditor({ initialWorkflow, persisted }: { initialWorkflow: Workflo
   return <div className="space-y-4">
     <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
       <ValidationPanel result={validation} onSelectNode={selectAndFocusNode} />
-      <div className="flex flex-col gap-3 border-b border-slate-200 p-3 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-sm font-semibold text-slate-950">{workflow.name}</p><p role="status" aria-live="polite" className="text-xs text-slate-500">{SAVE_STATUS_LABELS[saveStatus]}{persisted && localRevision > 0 ? ` · local revision ${localRevision}` : ""}</p></div><div className="flex flex-wrap gap-2" aria-label="Workflow actions"><button type="button" onClick={undo} disabled={!history.past.length} aria-label="Undo last workflow change" className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 disabled:cursor-not-allowed disabled:opacity-50">Undo</button><button type="button" onClick={redo} disabled={!history.future.length} aria-label="Redo last workflow change" className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 disabled:cursor-not-allowed disabled:opacity-50">Redo</button><button type="button" disabled={!publishAllowed || !persisted || publishing} aria-disabled={!publishAllowed || !persisted || publishing} onClick={publish} className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 disabled:cursor-not-allowed disabled:opacity-50">{publishing ? "Publishing…" : workflow.status === "published" ? "Republish" : "Publish"}</button>{palette.map(({ type, label }) => <button key={type} type="button" onClick={() => addPaletteNode(type)} className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900">+ {label}</button>)}</div></div>
-      <div className="grid min-h-[620px] lg:grid-cols-[minmax(0,1fr)_280px]"><section className="relative min-h-[620px]" aria-label="Workflow canvas"><ReactFlow nodes={nodes.map((node) => ({ ...node, selected: node.id === selectedNodeId }))} edges={edges} nodeTypes={nodeTypes} onNodesChange={onNodesChange} onNodesDelete={onNodesDelete} onConnect={onConnect} onNodeClick={(_, node) => { setSelectedNodeId(node.id); setMessage(`${node.data.title} selected.`); }} onPaneClick={() => setSelectedNodeId(null)} deleteKeyCode={["Backspace", "Delete"]} fitView fitViewOptions={{ padding: 0.25, maxZoom: 1.15 }} proOptions={{ hideAttribution: true }} className="bg-slate-50"><Background gap={24} size={1} /><Controls showInteractive={false} position="bottom-left" aria-label="Canvas controls" /></ReactFlow></section><section aria-label="Properties panel" className="min-w-0"><NodeConfigurationPanel node={selectedNode} onApply={applyConfig} /><div className="border-t border-slate-200 p-4"><div aria-live="polite" className="rounded-lg bg-slate-50 p-3 text-xs text-slate-600">{message}</div>{selectedNode ? <button type="button" onClick={deleteSelected} className="mt-4 rounded-lg border border-red-200 px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700">Delete selected</button> : null}</div></section></div>
-      <p className="border-t border-slate-200 px-4 py-3 text-xs text-slate-500">Server workflows are fetched through TanStack Query; local edits, history, revisions, and debounced autosave remain in the editor layer.</p>
+      <div className="border-b border-slate-200 p-3"><div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div className="min-w-0"><p className="truncate text-sm font-semibold text-slate-950">{workflow.name}</p><p role="status" aria-live="polite" className={`text-xs ${saveStatus === "save-failed" ? "text-red-600" : saveStatus === "saved" ? "text-emerald-600" : "text-slate-500"}`}>{SAVE_STATUS_LABELS[saveStatus]}{persisted && localRevision > 0 ? ` · local revision ${localRevision}` : ""}</p></div><div className="flex max-w-full gap-2 overflow-x-auto pb-1" aria-label="Workflow actions"><button type="button" onClick={undo} disabled={!history.past.length} aria-label="Undo last workflow change" className="shrink-0 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 disabled:cursor-not-allowed disabled:opacity-50">Undo</button><button type="button" onClick={redo} disabled={!history.future.length} aria-label="Redo last workflow change" className="shrink-0 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 disabled:cursor-not-allowed disabled:opacity-50">Redo</button><button type="button" disabled={!publishAllowed || !persisted || publishing} aria-disabled={!publishAllowed || !persisted || publishing} onClick={() => setPublishDialogOpen(true)} className="shrink-0 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50">{publishing ? "Publishing…" : workflow.status === "published" ? "Republish" : "Publish"}</button>{palette.map(({ type, label }) => <button key={type} type="button" onClick={() => addPaletteNode(type)} className="shrink-0 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700">+ {label}</button>)}</div></div></div>
+      <div className="grid min-h-0 lg:grid-cols-[minmax(0,1fr)_300px]"><section className="relative h-[min(68vh,720px)] min-h-[500px] lg:h-[680px]" aria-label="Workflow canvas"><ReactFlow nodes={nodes.map((node) => ({ ...node, selected: node.id === selectedNodeId }))} edges={edges} nodeTypes={nodeTypes} onNodesChange={onNodesChange} onNodesDelete={onNodesDelete} onConnect={onConnect} onNodeClick={(_, node) => { setSelectedNodeId(node.id); setMessage(`${node.data.title} selected.`); }} onPaneClick={() => setSelectedNodeId(null)} deleteKeyCode={["Backspace", "Delete"]} fitView fitViewOptions={{ padding: 0.25, maxZoom: 1.15 }} proOptions={{ hideAttribution: true }} className="bg-slate-50"><Background gap={24} size={1} /><Controls showInteractive={false} position="bottom-left" aria-label="Canvas controls" /></ReactFlow></section><section aria-label="Properties panel" className="min-w-0 border-t border-slate-200 lg:border-l lg:border-t-0"><NodeConfigurationPanel node={selectedNode} onApply={applyConfig} /><div className="border-t border-slate-200 p-4"><div aria-live="polite" className="rounded-xl bg-slate-50 p-3 text-xs leading-5 text-slate-600">{message}</div>{selectedNode ? <button type="button" onClick={deleteSelected} className="mt-3 w-full rounded-lg border border-red-200 px-3 py-2 text-sm font-medium text-red-700 transition hover:bg-red-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700">Delete selected</button> : null}</div></section></div>
+      <p className="border-t border-slate-200 px-4 py-3 text-xs text-slate-500">Draft changes autosave through the existing persistence layer. Published snapshots are used by Execution Preview.</p>
     </div>
     {persisted ? <ExecutionPreview workflow={workflow} /> : null}
+    <ConfirmDialog open={publishDialogOpen} title={workflow.status === "published" ? "Republish workflow?" : "Publish workflow?"} description={workflow.status === "published" ? "This will replace the currently published snapshot with the validated draft." : "This creates the published snapshot used by Execution Preview. Your editable draft remains available."} confirmLabel={workflow.status === "published" ? "Republish" : "Publish workflow"} busy={publishing} onCancel={() => setPublishDialogOpen(false)} onConfirm={publish} />
   </div>;
 }
 
