@@ -33,6 +33,8 @@ test("publish then execute preview", async ({ page }) => {
   await page.goto("/workflows/e2e-m8");
   await expect(page.getByRole("button", { name: "Publish" })).toBeEnabled();
   await page.getByRole("button", { name: "Publish" }).click();
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await page.getByRole("dialog").getByRole("button", { name: "Publish workflow" }).click();
   await expect(page.getByText("Published version 1 successfully.")).toBeVisible();
   await page.getByRole("button", { name: "Run Preview" }).click();
   await expect(page.getByText("Execution completed successfully.")).toBeVisible();
