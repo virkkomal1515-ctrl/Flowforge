@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
 test.describe("Milestone 3 workflow canvas", () => {
   test("renders the editor and all five node types", async ({ page }) => {

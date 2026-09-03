@@ -61,10 +61,14 @@ function CanvasEditor({ initialWorkflow, persisted }: { initialWorkflow: Workflo
       if (nextHistory === current) return current;
       localRevisionRef.current += 1;
       setLocalRevision(localRevisionRef.current);
-      if (persisted) autosaveRef.current?.schedule({ workflow: nextHistory.present, localRevision: localRevisionRef.current });
       return nextHistory;
     });
-  }, [persisted]);
+  }, []);
+
+  useEffect(() => {
+    if (!persisted || localRevision === 0) return;
+    autosaveRef.current?.schedule({ workflow, localRevision });
+  }, [localRevision, persisted, workflow]);
 
   const publish = async () => {
     if (!publishAllowed || !persisted || publishing) return;
@@ -89,8 +93,8 @@ function CanvasEditor({ initialWorkflow, persisted }: { initialWorkflow: Workflo
   const addPaletteNode = (type: NodeType) => { const id = `${type}-${++idCounter.current}`; const position = screenToFlowPosition({ x: window.innerWidth / 2, y: 280 }); const next = addNode(workflow, type, id, position); if (!next) return; commitLocalWorkflow(next); setSelectedNodeId(id); setMessage(`${type[0].toUpperCase()}${type.slice(1)} node added.`); };
   const deleteSelected = () => { if (!selectedNodeId) return; commitLocalWorkflow(deleteNodes(workflow, [selectedNodeId])); setSelectedNodeId(null); setMessage("1 node deleted."); };
   const applyConfig = (nodeId: string, config: NodeConfig): boolean => { const next = updateNodeConfig(workflow, nodeId, config); if (!next) { setMessage("Configuration rejected by the workflow domain."); return false; } commitLocalWorkflow(next); setMessage("Node configuration updated."); return true; };
-  const undo = useCallback(() => setHistory((current) => { if (!current.past.length) return current; const next = undoWorkflowHistory(current); localRevisionRef.current += 1; setLocalRevision(localRevisionRef.current); if (persisted) autosaveRef.current?.schedule({ workflow: next.present, localRevision: localRevisionRef.current }); setMessage("Undo applied."); return next; }), [persisted]);
-  const redo = useCallback(() => setHistory((current) => { if (!current.future.length) return current; const next = redoWorkflowHistory(current, DEFAULT_HISTORY_LIMIT); localRevisionRef.current += 1; setLocalRevision(localRevisionRef.current); if (persisted) autosaveRef.current?.schedule({ workflow: next.present, localRevision: localRevisionRef.current }); setMessage("Redo applied."); return next; }), [persisted]);
+  const undo = useCallback(() => setHistory((current) => { if (!current.past.length) return current; const next = undoWorkflowHistory(current); localRevisionRef.current += 1; setLocalRevision(localRevisionRef.current); setMessage("Undo applied."); return next; }), []);
+  const redo = useCallback(() => setHistory((current) => { if (!current.future.length) return current; const next = redoWorkflowHistory(current, DEFAULT_HISTORY_LIMIT); localRevisionRef.current += 1; setLocalRevision(localRevisionRef.current); setMessage("Redo applied."); return next; }), []);
   useEffect(() => { const onKeyDown = (event: KeyboardEvent) => { const modifier = event.metaKey || event.ctrlKey; if (!modifier || event.altKey) return; if (event.key.toLowerCase() === "z" && !event.shiftKey) { event.preventDefault(); undo(); } else if (event.key.toLowerCase() === "y" || (event.key.toLowerCase() === "z" && event.shiftKey)) { event.preventDefault(); redo(); } }; window.addEventListener("keydown", onKeyDown); return () => window.removeEventListener("keydown", onKeyDown); }, [redo, undo]);
 
   const validation = useMemo(() => validateWorkflow(workflow), [workflow]);

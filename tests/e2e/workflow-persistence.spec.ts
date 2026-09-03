@@ -1,24 +1,38 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 import { sampleWorkflow } from "../../lib/workflow/sample-workflow";
 
-test("loads, saves, reloads, and preserves workflow configuration", async ({ page }) => {
-  let stored = structuredClone(sampleWorkflow);
+test("loads, autosaves, reloads, and preserves workflow configuration", async ({ page }) => {
+  let stored = { ...structuredClone(sampleWorkflow), id: "demo" };
+
   await page.route("**/api/workflows/demo", async (route) => {
-    if (route.request().method() === "GET") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(stored) });
+    if (route.request().method() === "GET") {
+      return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(stored) });
+    }
     if (route.request().method() === "PATCH") {
       const body = route.request().postDataJSON() as { workflow: typeof stored; expectedRevision: number };
+      if (body.workflow.id !== "demo" || body.expectedRevision !== stored.version) {
+        return route.fulfill({
+          status: 409,
+          contentType: "application/json",
+          body: JSON.stringify({ error: { message: "Workflow revision conflict." } }),
+        });
+      }
       stored = { ...body.workflow, version: body.expectedRevision + 1 };
       return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(stored) });
     }
     return route.continue();
   });
+
   await page.goto("/workflows/demo");
   await expect(page.getByText("Request routing")).toBeVisible();
   await page.getByRole("group", { name: "Workflow action" }).click();
   await page.getByLabel("Action name").fill("Persisted route");
   await page.getByRole("button", { name: "Apply changes" }).click();
-  await page.getByRole("button", { name: "Save" }).click();
-  await expect(page.getByText("Workflow saved.")).toBeVisible();
+  await expect(page.getByText("Node configuration updated.")).toBeVisible();
+
+  const saveStatus = page.locator('p[role="status"]');
+  await expect(saveStatus).toContainText("Saved", { timeout: 5000 });
+
   await page.reload();
   await page.getByRole("group", { name: "Workflow action" }).click();
   await expect(page.getByLabel("Action name")).toHaveValue("Persisted route");
