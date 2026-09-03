@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
 test.describe("Milestone 9 accessibility", () => {
   test("exposes landmarks, labelled controls, and keyboard-focusable actions", async ({ page }) => {
