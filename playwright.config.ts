@@ -14,7 +14,7 @@ export default defineConfig({
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: {
     command: "pnpm start --hostname 127.0.0.1 --port 3000",
-    url: "http://127.0.0.1:3000",
+    url: "http://127.0.0.1:3000/dashboard",
     reuseExistingServer: !process.env.CI,
   },
 });
