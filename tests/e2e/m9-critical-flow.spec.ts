@@ -43,8 +43,8 @@ test.describe("Milestone 9 critical workflow journey", () => {
     await page.getByLabel("Action name").fill("Configured action");
     await page.getByRole("button", { name: "Apply changes" }).click();
     await expect(page.getByText("Node configuration updated.")).toBeVisible();
-    await expect(page.getByRole("region", { name: "Workflow validation" })).toContainText("Workflow is valid.");
-    await expect(page.getByText(/Saved|automatically/i).first()).toBeVisible({ timeout: 3000 });
+    await expect(page.getByLabel("Workflow validation")).toContainText("Workflow is valid.");
+    await expect(page.getByText("Workflow saved automatically.")).toBeVisible({ timeout: 5000 });
 
     await page.reload();
     await page.getByRole("group", { name: "Workflow action" }).click();
