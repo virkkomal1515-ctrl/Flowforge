@@ -13,11 +13,11 @@ test("workflow dashboard supports search and destructive confirmation", async ({
 
   const search = page.getByPlaceholder("Search workflows…");
   await search.fill("Request");
-  await expect(page.getByText("Request routing")).toBeVisible();
+  await expect(page.getByRole("table").getByText("Request routing")).toBeVisible();
   await expect(page.getByText("Showing 1 of 1 workflows")).toBeVisible();
 
   await search.fill("");
-  await page.getByRole("button", { name: "Delete" }).first().click();
+  await page.getByRole("table").getByRole("button", { name: "Delete" }).first().click();
   await expect(page.getByRole("dialog")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Delete workflow?" })).toBeVisible();
   await page.getByRole("button", { name: "Cancel" }).click();
