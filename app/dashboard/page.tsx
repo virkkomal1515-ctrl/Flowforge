@@ -4,11 +4,11 @@ import { WorkflowList } from "@/components/workflow/workflow-list";
 export default function DashboardPage() {
   return (
     <AppShell>
-      <section className="space-y-8">
-        <div>
-          <p className="text-sm font-medium text-slate-500">Dashboard</p>
-          <h1 className="mt-1 text-3xl font-semibold tracking-tight">Your workflows</h1>
-          <p className="mt-2 max-w-xl text-slate-600">Create, open, and delete persisted workflows. Server state is cached and synchronized with TanStack Query.</p>
+      <section className="space-y-6">
+        <div className="max-w-2xl">
+          <p className="text-sm font-semibold text-indigo-600">Workspace</p>
+          <h1 className="mt-1 text-3xl font-bold tracking-tight text-slate-950 sm:text-4xl">Workflows</h1>
+          <p className="mt-2 text-sm leading-6 text-slate-600 sm:text-base">Create, edit, validate, publish, and preview your automation workflows.</p>
         </div>
         <WorkflowList />
       </section>
