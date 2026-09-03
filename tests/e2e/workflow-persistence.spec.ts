@@ -2,7 +2,7 @@ import { expect, test } from "./fixtures";
 import { sampleWorkflow } from "../../lib/workflow/sample-workflow";
 
 test("loads, autosaves, reloads, and preserves workflow configuration", async ({ page }) => {
-  let stored = structuredClone(sampleWorkflow);
+  let stored = { ...structuredClone(sampleWorkflow), id: "demo" };
 
   await page.route("**/api/workflows/demo", async (route) => {
     if (route.request().method() === "GET") {
@@ -10,6 +10,13 @@ test("loads, autosaves, reloads, and preserves workflow configuration", async ({
     }
     if (route.request().method() === "PATCH") {
       const body = route.request().postDataJSON() as { workflow: typeof stored; expectedRevision: number };
+      if (body.workflow.id !== "demo" || body.expectedRevision !== stored.version) {
+        return route.fulfill({
+          status: 409,
+          contentType: "application/json",
+          body: JSON.stringify({ error: { message: "Workflow revision conflict." } }),
+        });
+      }
       stored = { ...body.workflow, version: body.expectedRevision + 1 };
       return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(stored) });
     }
