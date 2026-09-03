@@ -12,7 +12,7 @@ export interface SupabaseResponse<T> {
 
 function getConfig() {
   const url = process.env.SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const key = process.env.SUPABASE_SECRET_KEY ?? process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key) throw new SupabaseConfigurationError();
   return { url: url.replace(/\/$/, ""), key };
 }
@@ -23,7 +23,6 @@ export async function supabaseRequest<T>(path: string, init: RequestInit = {}): 
     ...init,
     headers: {
       apikey: key,
-      Authorization: `Bearer ${key}`,
       "Content-Type": "application/json",
       Prefer: "return=representation",
       ...init.headers,
