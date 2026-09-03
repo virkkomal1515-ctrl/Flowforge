@@ -20,10 +20,10 @@ test("loads, autosaves, reloads, and preserves workflow configuration", async ({
   await expect(page.getByText("Request routing")).toBeVisible();
   await page.getByRole("group", { name: "Workflow action" }).click();
   await page.getByLabel("Action name").fill("Persisted route");
-  const saveRequest = page.waitForRequest((request) => request.url().endsWith("/api/workflows/demo") && request.method() === "PATCH");
   await page.getByRole("button", { name: "Apply changes" }).click();
   await expect(page.getByText("Node configuration updated.")).toBeVisible();
-  await saveRequest;
+  await expect(page.getByRole("status")).toContainText("Saving", { timeout: 5000 });
+  await expect(page.getByRole("status")).toContainText("Saved", { timeout: 5000 });
 
   await page.reload();
   await page.getByRole("group", { name: "Workflow action" }).click();
