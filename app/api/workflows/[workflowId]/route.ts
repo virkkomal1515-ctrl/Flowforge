@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
-import { ZodError } from "zod";
-import { fromPersistence } from "@/lib/workflow/persistence-transforms";
 import { workflowRepository, WorkflowNotFoundError, WorkflowRevisionConflictError } from "@/features/workflow-persistence/repository";
+import type { Workflow } from "@/domain";
 
 interface RouteContext { params: Promise<{ workflowId: string }> }
 
@@ -19,11 +18,10 @@ export async function PATCH(request: Request, { params }: RouteContext) {
   try {
     const body = await request.json() as { workflow?: unknown; expectedRevision?: unknown };
     if (typeof body.expectedRevision !== "number" || !Number.isInteger(body.expectedRevision) || body.expectedRevision < 0) return NextResponse.json({ error: { code: "INVALID_REVISION", message: "A non-negative integer expectedRevision is required." } }, { status: 400 });
-    const workflow = fromPersistence(body.workflow);
-    if (workflow.id !== workflowId) return NextResponse.json({ error: { code: "WORKFLOW_ID_MISMATCH", message: "Workflow id does not match the route." } }, { status: 400 });
+    const workflow = body.workflow as Workflow;
+    if (!workflow || typeof workflow !== "object" || workflow.id !== workflowId) return NextResponse.json({ error: { code: "WORKFLOW_ID_MISMATCH", message: "Workflow id does not match the route." } }, { status: 400 });
     return NextResponse.json(await workflowRepository.update(workflow, body.expectedRevision));
   } catch (error) {
-    if (error instanceof ZodError) return NextResponse.json({ error: { code: "INVALID_WORKFLOW", message: "Workflow payload is invalid." } }, { status: 400 });
     if (error instanceof WorkflowRevisionConflictError) return NextResponse.json({ error: { code: "REVISION_CONFLICT", message: error.message } }, { status: 409 });
     if (error instanceof SyntaxError) return NextResponse.json({ error: { code: "INVALID_JSON", message: "Request body is invalid JSON." } }, { status: 400 });
     return NextResponse.json({ error: { code: "PERSISTENCE_ERROR", message: "Unable to save workflow." } }, { status: 500 });

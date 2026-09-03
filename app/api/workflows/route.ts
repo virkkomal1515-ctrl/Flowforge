@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { fromPersistence } from "@/lib/workflow/persistence-transforms";
 import { workflowRepository } from "@/features/workflow-persistence/repository";
+import type { Workflow } from "@/domain";
 
 export async function GET() {
   try {
@@ -12,7 +12,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const workflow = fromPersistence(await request.json());
+    const workflow = (await request.json()) as Workflow;
     const created = await workflowRepository.create(workflow);
     return NextResponse.json(created, { status: 201 });
   } catch (error) {
