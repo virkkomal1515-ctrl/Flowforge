@@ -37,14 +37,19 @@ function WorkflowPreview() {
       </div>
       <div className="relative mx-auto mt-5 h-[315px] w-full max-w-[520px] sm:mt-8 sm:h-[335px]">
         <svg className="absolute inset-0 h-full w-full" viewBox="0 0 520 335" fill="none" aria-hidden="true">
-          <path d="M260 78V111" stroke="#94A3B8" strokeWidth="2" /><path d="M260 181V208" stroke="#94A3B8" strokeWidth="2" /><path d="M260 208H150V238" stroke="#94A3B8" strokeWidth="2" /><path d="M260 208H370V238" stroke="#94A3B8" strokeWidth="2" /><path d="M150 300V312H260V320" stroke="#94A3B8" strokeWidth="2" /><path d="M370 300V312H260" stroke="#94A3B8" strokeWidth="2" />
-          <circle cx="260" cy="208" r="4" fill="#F59E0B" /><text x="164" y="226" fill="#64748B" fontSize="10">true</text><text x="378" y="226" fill="#64748B" fontSize="10">false</text>
+          <path d="M260 78V111" stroke="#94A3B8" strokeWidth="2" />
+          <path d="M260 181V208" stroke="#94A3B8" strokeWidth="2" />
+          <path d="M260 245H150V260" stroke="#94A3B8" strokeWidth="2" />
+          <path d="M260 245H370V260" stroke="#94A3B8" strokeWidth="2" />
+          <circle cx="260" cy="245" r="4" fill="#F59E0B" />
+          <text x="164" y="254" fill="#64748B" fontSize="10">true</text>
+          <text x="378" y="254" fill="#64748B" fontSize="10">false</text>
         </svg>
         <PreviewNode className="left-1/2 top-0 -translate-x-1/2" type="trigger" title="New request" meta="Incoming event" />
         <PreviewNode className="left-1/2 top-[105px] -translate-x-1/2" type="action" title="Route request" meta="HTTP action" />
-        <PreviewNode className="left-[calc(50%-176px)] top-[232px]" type="notification" title="Notify team" meta="Notification" />
-        <PreviewNode className="right-[calc(50%-176px)] top-[232px]" type="end" title="Finish" meta="Workflow end" />
-        <PreviewNode className="left-1/2 top-[265px] -translate-x-1/2" type="condition" title="Priority?" meta="True / false branch" />
+        <PreviewNode className="left-1/2 top-[200px] -translate-x-1/2" type="condition" title="Priority?" meta="True / false branch" />
+        <PreviewNode className="left-[calc(50%-176px)] top-[255px]" type="notification" title="Notify team" meta="Notification" />
+        <PreviewNode className="right-[calc(50%-176px)] top-[255px]" type="end" title="Finish" meta="Workflow end" />
       </div>
     </div>
   );
