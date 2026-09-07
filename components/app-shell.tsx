@@ -7,6 +7,7 @@ export function AppShell({ children }: Readonly<{ children: React.ReactNode }>) 
   const pathname = usePathname();
   const homeActive = pathname === "/";
   const workflowsActive = pathname === "/dashboard" || pathname.startsWith("/workflows/");
+  const editorActive = pathname.startsWith("/workflows/");
   const navClass = (active: boolean) => `rounded-lg px-3 py-2 transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 ${active ? "bg-white text-slate-950 shadow-sm" : "text-slate-600 hover:bg-white/70 hover:text-slate-950"}`;
 
   return (
@@ -18,7 +19,7 @@ export function AppShell({ children }: Readonly<{ children: React.ReactNode }>) 
             <Link href="/" className={navClass(homeActive)} aria-current={homeActive ? "page" : undefined}>Home</Link>
             <Link href="/dashboard" className={navClass(workflowsActive)} aria-current={workflowsActive ? "page" : undefined}>Workflows</Link>
           </nav>
-          <Link href="/dashboard" className="hidden rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 sm:inline-flex focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">Open workspace</Link>
+          {editorActive ? <Link href="/dashboard" className="hidden rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 sm:inline-flex focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">← Back to workspace</Link> : <span className="hidden h-9 w-[154px] sm:block" aria-hidden="true" />}
         </div>
       </header>
       <main className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">{children}</main>
