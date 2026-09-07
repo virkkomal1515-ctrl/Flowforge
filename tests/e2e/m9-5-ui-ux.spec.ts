@@ -2,7 +2,7 @@ import { expect, test } from "./fixtures";
 
 test("home is the product introduction, not a separate About section", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: "Build workflows with FlowForge." })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Build workflows\. Ship with confidence\./ })).toBeVisible();
   await expect(page.getByText("About FlowForge")).toHaveCount(0);
   await expect(page.getByRole("link", { name: "Workflows" })).toBeVisible();
 });
