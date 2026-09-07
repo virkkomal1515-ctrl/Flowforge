@@ -24,14 +24,17 @@ test("lists, creates, and deletes workflows", async ({ page }) => {
   });
 
   await page.goto("/dashboard");
-  await expect(page.getByText("Existing workflow")).toBeVisible();
+  await expect(page.getByRole("table").getByText("Existing workflow")).toBeVisible();
   await page.getByRole("button", { name: "New workflow" }).click();
   await page.waitForURL(/\/workflows\//);
 
   await page.goto("/dashboard");
-  await expect(page.getByText("Existing workflow")).toBeVisible();
-  const cards = page.locator("li");
-  await expect(cards).toHaveCount(2);
-  await cards.filter({ hasText: "Existing workflow" }).getByRole("button", { name: "Delete" }).click();
-  await expect(page.getByText("Existing workflow")).not.toBeVisible();
+  const rows = page.getByRole("table").getByRole("row");
+  await expect(rows.filter({ hasText: "Existing workflow" })).toHaveCount(1);
+  await expect(rows.filter({ hasText: "Existing workflow" }).getByRole("link", { name: "Edit" })).toBeVisible();
+
+  await rows.filter({ hasText: "Existing workflow" }).getByRole("button", { name: "Delete" }).click();
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await page.getByRole("dialog").getByRole("button", { name: "Delete workflow" }).click();
+  await expect(page.getByRole("table").getByText("Existing workflow")).not.toBeVisible();
 });

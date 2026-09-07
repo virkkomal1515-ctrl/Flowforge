@@ -3,7 +3,14 @@
 
 :root { --background: #f8fafc; --foreground: #0f172a; }
 * { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
 body { margin: 0; background: var(--background); color: var(--foreground); font-family: Arial, Helvetica, sans-serif; }
-.react-flow__node.selected > div { outline: 3px solid #0f172a; outline-offset: 3px; }
-.react-flow__handle:focus-visible { outline: 2px solid #0f172a; outline-offset: 2px; }
-@media (max-width: 640px) { .react-flow__controls { bottom: 12px; left: 12px; } }
+button, a, input, select, textarea { -webkit-tap-highlight-color: transparent; }
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid #4f46e5; outline-offset: 2px; }
+.react-flow__node.selected > div { outline: 3px solid #4f46e5; outline-offset: 3px; }
+.react-flow__handle:focus-visible { outline: 2px solid #4f46e5; outline-offset: 2px; }
+.react-flow__controls { overflow: hidden; border: 1px solid #e2e8f0; border-radius: 12px; box-shadow: 0 4px 16px rgb(15 23 42 / 0.08); }
+.react-flow__controls-button { width: 34px; height: 34px; border-bottom-color: #e2e8f0; }
+@media (max-width: 1023px) { .react-flow__controls { bottom: 12px; left: 12px; } }
+@media (max-width: 640px) { html { scroll-behavior: auto; } .react-flow__controls { bottom: 10px; left: 10px; } }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; } }
