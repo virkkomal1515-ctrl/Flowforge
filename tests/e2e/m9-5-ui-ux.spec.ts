@@ -6,11 +6,13 @@ test("home is the product introduction with shared navigation", async ({ page })
   await expect(page.getByText("About FlowForge")).toHaveCount(0);
   await expect(page.getByRole("link", { name: "Home", exact: true })).toHaveAttribute("aria-current", "page");
   await expect(page.getByRole("link", { name: "Workflows", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Open workspace" })).toHaveCount(0);
 
   await page.getByRole("link", { name: "Workflows", exact: true }).click();
   await expect(page).toHaveURL(/\/dashboard$/);
   await expect(page.getByRole("link", { name: "Workflows", exact: true })).toHaveAttribute("aria-current", "page");
   await expect(page.getByRole("link", { name: "Home", exact: true })).not.toHaveAttribute("aria-current", "page");
+  await expect(page.getByRole("link", { name: /workspace/i })).toHaveCount(0);
 });
 
 test("workflow dashboard supports search and destructive confirmation", async ({ page }) => {
@@ -18,6 +20,7 @@ test("workflow dashboard supports search and destructive confirmation", async ({
   await expect(page.getByRole("heading", { name: "Your workflows" })).toBeVisible();
   await expect(page.getByRole("link", { name: "FlowForge home" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Workflows", exact: true })).toHaveAttribute("aria-current", "page");
+  await expect(page.getByRole("link", { name: /workspace/i })).toHaveCount(0);
 
   const search = page.getByPlaceholder("Search workflows…");
   await search.fill("Request");
@@ -30,4 +33,12 @@ test("workflow dashboard supports search and destructive confirmation", async ({
   await expect(page.getByRole("heading", { name: "Delete workflow?" })).toBeVisible();
   await page.getByRole("button", { name: "Cancel" }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
+});
+
+test("workflow editor provides a back-to-workspace action", async ({ page }) => {
+  await page.goto("/workflows/demo");
+  await expect(page.getByRole("link", { name: "← Back to workspace" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Open workspace" })).toHaveCount(0);
+  await page.getByRole("link", { name: "← Back to workspace" }).click();
+  await expect(page).toHaveURL(/\/dashboard$/);
 });
