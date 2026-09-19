@@ -31,9 +31,19 @@ const nodeSchema = z.discriminatedUnion("type", [
 const edgeSchema = z.object({ id: z.string().min(1), sourceNodeId: z.string().min(1), sourcePort: z.enum(["default", "true", "false"]), targetNodeId: z.string().min(1), targetPort: z.literal("default") }).strict();
 const graphSchema = z.object({ nodes: z.array(nodeSchema), edges: z.array(edgeSchema) }).strict();
 const isoUtcTimestampSchema = z.string().refine((value) => {
-  if (!/(?:Z|[+]00:00)$/.test(value)) return false;
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,3}))?(Z|\+00:00)$/.exec(value);
+  if (!match) return false;
+  const [, year, month, day, hour, minute, second, fraction = "0"] = match;
   const timestamp = Date.parse(value);
-  return Number.isFinite(timestamp) && new Date(timestamp).toISOString().endsWith("Z");
+  if (!Number.isFinite(timestamp)) return false;
+  const date = new Date(timestamp);
+  return date.getUTCFullYear() === Number(year)
+    && date.getUTCMonth() + 1 === Number(month)
+    && date.getUTCDate() === Number(day)
+    && date.getUTCHours() === Number(hour)
+    && date.getUTCMinutes() === Number(minute)
+    && date.getUTCSeconds() === Number(second)
+    && date.getUTCMilliseconds() === Number(fraction.padEnd(3, "0"));
 }, { message: "Invalid ISO UTC timestamp" });
 const persistedWorkflowSchema = z.object({
   id: z.string().min(1), name: z.string(), description: z.string(), status: z.enum(["draft", "published"]), revision: z.number().int().nonnegative(),
